@@ -1,11 +1,15 @@
 import base64
-from Crypto.Cipher import AES
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+
 
 key = b"YELLOW SUBMARINE"
 
 with open("7.txt", "r") as f:
     ctx = base64.b64decode(str(f.read()))
 
-cipher = AES.new(key, AES.MODE_ECB)
+cipher = Cipher(algorithms.AES(key), modes.ECB(), backend=default_backend())
+decryptor = cipher.decryptor()
+decrypted_data = decryptor.update(ctx) + decryptor.finalize()
 
-print(cipher.decrypt(ctx).decode())
+print(decrypted_data.decode())
