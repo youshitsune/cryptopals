@@ -1,8 +1,16 @@
-with open("8.txt", "rb") as f:
-    ctx = f.read().splitlines()
+from Crypto.Cipher import AES
 
-for i in ctx:
-    num_blocks = len(i) // 16
-    blocks = [i[x*16:(x+1)*16] for x in range(num_blocks)]
-    if len(set(blocks)) != num_blocks:
-        print(i)
+key = b"YELLOW SUBMARINE"
+
+cipher = AES.new(key, AES.MODE_ECB)
+
+data = [bytes.fromhex(x) for x in open("8.txt", "r").read().splitlines()]
+
+for block in data:
+    t = []
+    size = len(block)//16
+    for i in range(0, len(block), 16):
+        t.append(block[i:i+16])
+    
+    if len(set(t)) != size:
+        print(block.hex())

@@ -1,23 +1,24 @@
-string = "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736"
+def xor(a, x):
+    r = ""
+    for i in range(len(a)):
+        r += hex(a[i] ^ x)[2:]
 
-def xor(a,b):
-    return bytes([_a ^ _b for (_a, _b) in zip(a,b)])
+    return r
 
-ascii_list = [32] + list(range(97,122))
+def score(s):
+    for i in s:
+        if i not in list("ABCDEFGHIJKLOMNPQRSTUVXYZabcdefghijklomnpqrstuvxyz'\"-.,; "):
+            return False
 
-def attack_xor(ctx):
-    best = None
-    for i in range(2**8):
-        key = i.to_bytes(1, byteorder='big')
-        keystream = key*len(ctx)
-        msg = xor(ctx,keystream)
-        nb_letters = sum([x in ascii_list for x in msg])
-        if best == None or nb_letters > best['nb_letters']:
-            best = {"message": msg, "nb_letters": nb_letters}
+    return True
 
-    return best
+a = bytes.fromhex(input("> "))
 
-result = attack_xor(bytes.fromhex(string))
-
-print(result['message'].decode())
-
+for i in range(1, 256):
+    try:
+        x = bytes.fromhex(xor(a, i)).decode()
+    except Exception:
+        pass
+    else:
+        if score(x): 
+            print(bytes.fromhex(xor(a, i)))

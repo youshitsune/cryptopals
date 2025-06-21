@@ -1,41 +1,67 @@
-from os import urandom
+import os
 import random
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
+from Crypto.Cipher import AES
 
-def padding(ctx):
-    padding_length = 16 - (len(ctx)%16)
-    if padding_length == 0:
-        padding_length = 16
-    padding = bytes([padding_length]) * padding_length
-    return ctx + padding
+class CBC:
+    def __init__(self, iv, key):
+        self.iv = iv
+        self.aes = AES.new(key, AES.MODE_ECB)
+    
+    def xor(self, a, b):
+        return bytes([x ^ y for x, y in zip(a, b)])
 
-def check_ecb(ctx):
-    num_blocks = len(ctx) // 16
-    blocks = [ctx[x*16:(x+1)*16] for x in range(num_blocks)] 
-    if len(set(blocks)) != num_blocks:
-        return True
+    def decrypt(self, ciphertext):
+        text = [self.xor(self.iv, self.aes.decrypt(ciphertext[0:16]))]
+
+        for i in range(16, len(ciphertext), 16):
+            text.append(self.xor(ciphertext[i-16:i], self.aes.decrypt(ciphertext[i:i+16])))
+
+        return b"".join(text).decode()
+
+    def encrypt(self, text):
+        ciphertext = [self.aes.encrypt(self.xor(self.iv, text[0:16]))]
+
+        for i in range(16, len(text), 16):
+            ciphertext.append(self.aes.encrypt(self.xor(ciphertext[-1], text[i:i+16])))
+
+        return b"".join(ciphertext)
+
+def rand16():
+    return os.urandom(16)
+
+def pkcs(s):
+    t = 16 - (len(s)%16)
+    if t == 0:
+        t = 16
+    return s + bytes([t]*t)
+
+def encryption_oracle(x):
+    nb = random.randint(5, 10)
+    x = os.urandom(nb) + x + os.urandom(nb)
+
+    x = pkcs(x)
+
+    rn = random.randint(0, 1)
+
+    if rn == 0:
+        cbc = CBC(rand16(), rand16())
+        print("CBC")
+        return cbc.encrypt(x)
     else:
-        return False
+        cipher = AES.new(rand16(), AES.MODE_ECB)
+        print("ECB")
+        return cipher.encrypt(x)
 
 
-def encryption_oracle(ctx):
-    enc = random.choice(range(2))
-    if enc == 0:
-        nbytes = random.choice(range(5, 11))
-        cipher = Cipher(algorithms.AES(urandom(16)), modes.ECB(), backend=default_backend())
-        encryptor = cipher.encryptor()
-        return encryptor.update(padding(urandom(nbytes)+bytes(ctx)+urandom(nbytes))) + encryptor.finalize()
+def detector():
+    r = encryption_oracle(b"a"*64)
 
+    size = len(r)//16
+    t = [r[i:i+16] for i in range(0, len(r), 16)]
+
+    if len(set(t)) != size:
+        return "ECB"
     else:
-        nbytes = random.choice(range(5, 11))
-        cipher = Cipher(algorithms.AES(urandom(16)), modes.CBC(urandom(16)), backend=default_backend())
-        encryptor = cipher.encryptor()
-        return encryptor.update(padding(urandom(nbytes)+bytes(ctx)+urandom(nbytes))) + encryptor.finalize()
+        return "CBC"
 
-msg = b'a'*64
-cipher = encryption_oracle(msg)
-if check_ecb(cipher):
-    print("ECB")
-else:
-    print("CBC")
+print(detector())

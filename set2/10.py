@@ -1,33 +1,34 @@
 import base64
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
+from Crypto.Cipher import AES
 
-def xor(a, b):
-    return bytes(_a ^ _b for _a, _b in zip(a, b))
+class CBC:
+    def __init__(self, iv, key):
+        self.iv = iv
+        self.aes = AES.new(key, AES.MODE_ECB)
+    
+    def xor(self, a, b):
+        return bytes([x ^ y for x, y in zip(a, b)])
 
-def aes(ctx, key):
-    cipher = Cipher(algorithms.AES(key), modes.ECB(), backend=default_backend())
-    decryptor = cipher.decryptor()
-    return decryptor.update(ctx) + decryptor.finalize()
+    def decrypt(self, ciphertext):
+        text = [self.xor(self.iv, self.aes.decrypt(ciphertext[0:16]))]
 
+        for i in range(16, len(ciphertext), 16):
+            text.append(self.xor(ciphertext[i-16:i], self.aes.decrypt(ciphertext[i:i+16])))
+
+        return b"".join(text).decode()
+
+    def encrypt(self, text):
+        ciphertext = [self.aes.encrypt(self.xor(self.iv, text[0:16]))]
+
+        for i in range(16, len(text), 16):
+            ciphertext.append(self.aes.encrypt(self.xor(ciphertext[-1], text[i:i+16])))
+
+        return b"".join(ciphertext)
+
+
+iv = b"\x00"*16
 key = b"YELLOW SUBMARINE"
 
-with open("10.txt", "r") as f:
-    ctx = base64.b64decode(str(f.read()))
-
-cipher_blocks = []
-for i in range(16, len(bytes(ctx))+1, 16):
-    cipher_blocks.append(ctx[i-16:i])
-
-cipher_blocks.reverse()
-decrypted_blocks = []
-for i in range(len(cipher_blocks)-1):
-
-    decrypted_blocks.append(xor(aes(cipher_blocks[i], key), cipher_blocks[i+1]))
-
-decrypted_blocks.append(xor(aes(cipher_blocks[len(cipher_blocks)-1], key), b"0"*16))
-
-for i in range(len(decrypted_blocks)):
-    decrypted_blocks[i] = decrypted_blocks[i].decode()   
-
-print("".join(list(reversed(decrypted_blocks))))
+data = base64.b64decode(open("10.txt", "r").read())
+cbc = CBC(iv, key)
+print(cbc.decrypt(data))

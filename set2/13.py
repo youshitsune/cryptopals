@@ -1,51 +1,45 @@
-import re
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
-from os import urandom
-from math import ceil
+import os
+import random
+from Crypto.Cipher import AES
 
-key = urandom(16)
+key = os.urandom(16)
+cipher = AES.new(key, AES.MODE_ECB)
 
-### ORACLE ###
-def parser(ctx):
-    parsed_ctx = {}
-    for item in ctx.split("&"):
-        parsed_ctx[item.split("=")[0]] = item.split("=")[1]
+def pkcs(s):
+    t = 16 - len(s)%16
+    if t == 0:
+        t = 16
+    return s + bytes([t]*t)
 
-    return parsed_ctx
+def parser(s):
+    data = s.split("&")
 
-def padding(ctx):
-    padding_length = 16 - (len(ctx) % 16)
-    if padding_length == 0:
-        return ctx + bytes([padding_length])*16
-    else:
-        return ctx + bytes([padding_length])*padding_length
+    r = {}
+
+    for block in data:
+        t = block.split("=")
+        r[t[0]] = t[1]
+
+    return r
 
 def profile_for(email):
-    if b"&" in email or b"=" in email:
-        print("Invalid email format")
-    else:
-        cipher = Cipher(algorithms.AES(key), modes.ECB(), backend=default_backend())
-        encryptor = cipher.encryptor()
-        return encryptor.update(padding(bytes(f"email={email.decode()}&uid=10&role=user", "utf-8"))) + encryptor.finalize()
+    email = email.decode()
+    email.replace("&", "")
+    email.replace("=", "")
+    r = pkcs(f"email={email}&uid=10&role=user".encode())
 
-def decrypt(ctx):
-    cipher = Cipher(algorithms.AES(key), modes.ECB(), backend=default_backend())
-    decryptor = cipher.decryptor()
-    return decryptor.update(ctx) + decryptor.finalize()
+    return cipher.encrypt(r)
 
-### ATTACK ###
-def split_bytes(ctx):
-    blocks = ceil(len(ctx)/16)
-    return [ctx[16*i:16*(i+1)] for i in range(blocks)]
 
-target_email = b"eeeeeeeeeeeeeeee@attacker.com"
+def decrypt(ciphertext):
+    return parser(cipher.decrypt(ciphertext).decode())
+
+target_email = b"e"*29
 first_cipher = profile_for(target_email)
 
-fab_email = b"nextBlockShouldSt@rt.Here:" + padding(b"admin")
+fab_email = b"a"*26 + pkcs(b"admin")
 second_cipher = profile_for(fab_email)
-cut = second_cipher[32:48]
-new_cipher = first_cipher[:-16] + cut
+r = first_cipher[:-16] + second_cipher[32:48]
 
-print(parser(decrypt(new_cipher).decode()))
 
+print(decrypt(r))

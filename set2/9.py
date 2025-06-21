@@ -1,10 +1,5 @@
-cipher = input("Text: ")
-key = input("Key: ")
+def pkcs(s, size):
+    t = size - len(s)
+    return s + bytes([t]*t)
 
-while True:
-    if len(bytes(cipher, "utf-8")) % len(bytes(key, "utf-8")) == 0:
-        break
-    else:
-        key+="\x04"
-
-print(bytes(key, "utf-8"))
+print(pkcs(b"YELLOW SUBMARINE", 20))

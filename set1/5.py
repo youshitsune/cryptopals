@@ -1,7 +1,24 @@
-def xor(a, b):
-    return bytes([_a ^ _b for _a, _b in zip(a, b)])
+def rxor(text, key):
+    chunks = [x.encode() for x in text.splitlines()]
+    key = key.encode()
+    
+    r = []
+    t = []
 
-ctx = b"Burning 'em, if you ain't quick and nimble\nI go crazy when I hear a cymbal"
-key = b"ICE"
+    for chunk in chunks:
+        for i in range(len(chunk)):
+            t.append(key[i % len(key)] ^ chunk[i])
 
-print(xor(ctx, key*(len(ctx)//len(key) + 1)).hex())
+        r.append(bytes(t))
+        t = []
+
+    return r
+
+key = "ICE"
+code = """Burning 'em, if you ain't quick and nimble
+I go crazy when I hear a cymbal"""
+
+result = rxor(code, key)
+
+for i in result:
+    print(i.hex())
